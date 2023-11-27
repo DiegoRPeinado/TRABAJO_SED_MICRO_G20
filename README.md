@@ -5,3 +5,4 @@ Programación en un microcontrolador de una aplicación domótica a especificar
 # Integrantes
 
 Diego Ramírez Peinado
+Mónica Sacristán Sánchez 
