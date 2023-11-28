@@ -6,3 +6,4 @@ Programación en un microcontrolador de una aplicación domótica a especificar
 
 Diego Ramírez Peinado
 Mónica Sacristán Sánchez 
+Daniel Sato Leandro
