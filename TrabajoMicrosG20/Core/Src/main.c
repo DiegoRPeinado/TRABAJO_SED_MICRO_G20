@@ -48,12 +48,56 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+int antirrebotes();
+void movimiento_servo_manual(uint8_t mov);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+int antirrebotes(){
+	uint32_t couter=HAL_GetTick();
+	int8_t button_count=0;
+
+	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)){
+
+		counter=HAL_GetTick();
+
+		while(button_count<3){
+			if(HAL_GetTick()-counter>=20){ //comprueba cada 20 ms
+
+					if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)!=1){
+						button_count=0;
+					}
+					else{
+						button_count++;
+					}
+					if(button_count==3){   //comprueba 3 veces
+						button_count=0;
+						return 1;   //da por finalizado el rebote
+					}
+				}
+		}
+	}
+	return 0;
+}
+
+void movimiento_servo_manual(uint8_t mov){
+	if(mov==1){
+		//hacer que el servo gire hacia derecha (subir)
+	}else{
+		//hacer que el servo gire hacia izquierda (bajar)
+	}
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+
+	if(GPIO_PIN==GPIO_PIN0_0){
+		movimiento_servo_manual();
+	}
+}
 
 /* USER CODE END 0 */
 
@@ -85,8 +129,10 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_TIM2_Init(); //Inicializo timer
   /* USER CODE BEGIN 2 */
-
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANEL_2);  //Iniciailzar el PWM, le paso el contador a usar (2) y el canal (2)
+  TIM2->CCR2=65;  //Inicializo para -90 grados MIRAR CUANTO ES EL MIN
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -96,6 +142,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
   }
   /* USER CODE END 3 */
 }
@@ -166,7 +213,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : PA0 */
   GPIO_InitStruct.Pin = GPIO_PIN_0;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_EVT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
