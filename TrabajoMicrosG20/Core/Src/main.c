@@ -21,7 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "controlServo.h"
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,10 +41,6 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-ADC_HandleTypeDef hadc1;
-TIM_HandleTypeDef htim2;
-uint8_t sentido;
-
 
 /* USER CODE BEGIN PV */
 
@@ -54,51 +51,60 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM2_Init(void);
-int antirrebotes();
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN);
-
-
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+ADC_HandleTypeDef hadc1;
+TIM_HandleTypeDef htim2;
 
-int antirrebotes(){
-	uint32_t counter=HAL_GetTick();
-	int8_t button_count=0;
+bool persianasArriba;
+bool persianasAbajo;
 
-	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)){
+//bool modo;
 
-		counter=HAL_GetTick();
-
-		while(button_count<3){
-			if(HAL_GetTick()-counter>=20){ //comprueba cada 20 ms
-
-					if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)!=1){
-						button_count=0;
-					}
-					else{
-						button_count++;
-					}
-					if(button_count==3){   //comprueba 3 veces
-						button_count=0;
-						return 1;   //da por finalizado el rebote
-					}
-				}
-		}
-	}
-	return 0;
-}
-
+bool botonPersianas; // En modo manual, permite controlar las persianas
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
 
-	if(GPIO_PIN==GPIO_PIN_0){
-		sentido=1;
-	}else{
-		sentido=0;
+	if(GPIO_PIN==GPIO_PIN_0)
+	{
+		botonPersianas=true;
 	}
+}
+
+bool antirrebotes(bool boton, GPIO_TypeDef* GPIO_PORT, uint16_t GPIO_NUMBER){
+	static uint8_t button_count=0;
+	static int counter=0;
+
+		if (boton==true)
+		{
+			if (button_count==0)
+			{
+				counter=HAL_GetTick();
+				button_count++;
+			}
+			if (HAL_GetTick()-counter>=20)
+			{
+				counter=HAL_GetTick();
+				if (HAL_GPIO_ReadPin(GPIO_PORT, GPIO_NUMBER)!=1)
+				{
+					button_count=1;
+				}
+				else
+				{
+					button_count++;
+				}
+				if (button_count==4) //Periodo antirebotes
+				{
+					button_count=0;
+					boton=false; // PONEMOS EL BOTON A 0 UNA VEZ PASE EL DEBOUNCER
+					return true;
+				}
+			}
+		}
+	return false;
 }
 
 /* USER CODE END 0 */
@@ -134,8 +140,10 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);  //Iniciailzar el PWM, le paso el contador a usar (2) y el canal (4)
-  TIM2->CCR2=65;  //Inicializo para -90 grados MIRAR CUANTO ES EL MIN
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+
+  persianasArriba=false;
+  persianasAbajo=true;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -145,7 +153,30 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		  movServo(TIM2,sentido);
+	if (persianasAbajo == true)
+	{
+		//SI PULSAMOS BOTONPERSIANAS Y PASA EL DEBOUNCER, SUBIMOS PERSIANAS
+		if (antirrebotes(botonPersianas, GPIOA, GPIO_PIN_0))
+		{
+			subirPersianas(htim2);
+			HAL_Delay(3000);
+			pararPersianas(htim2);
+			persianasArriba=true;
+			persianasAbajo=false;
+		}
+	}
+	if (persianasArriba == true)
+	{
+		//SI PULSAMOS BOTONPERSIANA Y PASA EL DEBOUNCER, BAJAMOS PERSIANAS
+		if (antirrebotes(botonPersianas, GPIOA, GPIO_PIN_0))
+		{
+			bajarPersianas(htim2);
+			HAL_Delay(3000);
+			pararPersianas(htim2);
+			persianasArriba=false;
+			persianasAbajo=true;
+		}
+	}
   }
   /* USER CODE END 3 */
 }
@@ -263,9 +294,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 64;
+  htim2.Init.Prescaler = 80-1;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 2499;
+  htim2.Init.Period = 2000-1;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -291,10 +322,6 @@ static void MX_TIM2_Init(void)
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
@@ -318,16 +345,24 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, Motor_IN_2_Pin|Motor_IN_1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PA0 PA1 PA2 */
   GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : Motor_IN_2_Pin Motor_IN_1_Pin */
+  GPIO_InitStruct.Pin = Motor_IN_2_Pin|Motor_IN_1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
