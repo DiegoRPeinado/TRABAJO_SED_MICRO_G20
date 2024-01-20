@@ -6,7 +6,7 @@
 
 // Definiciones de pines y periféricos para los servos
 #define SERVO_TIM_HANDLE htim2
-#define SERVO_TIM_CHANNEL TIM_CHANNEL_4
+#define SERVO_TIM_CHANNEL TIM_CHANNEL_2
 
 // Función para mover el servo con un sentido específico
 void movServo(TIM_TypeDef *tim, uint8_t sentido);
