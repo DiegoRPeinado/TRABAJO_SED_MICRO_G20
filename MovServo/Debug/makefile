@@ -60,8 +60,8 @@ all: main-build
 main-build: MovServo.elf secondary-outputs
 
 # Tool invocations
-MovServo.elf MovServo.map: $(OBJS) $(USER_OBJS) C:\Users\monic\STM32CubeIDE\workspace_1.14.0\MovServo\STM32F411VETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "MovServo.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\monic\STM32CubeIDE\workspace_1.14.0\MovServo\STM32F411VETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="MovServo.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+MovServo.elf MovServo.map: $(OBJS) $(USER_OBJS) C:\Users\diego\OneDrive\Documentos\TRABAJO_SED_MICRO_G20\MovServo\STM32F411VETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "MovServo.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\diego\OneDrive\Documentos\TRABAJO_SED_MICRO_G20\MovServo\STM32F411VETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="MovServo.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
