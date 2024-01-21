@@ -66,11 +66,17 @@ bool persianasAbajo;
 //bool modo;
 
 bool botonPersianas; // En modo manual, permite controlar las persianas
+bool botonAutomatico; // Activa o desactiva el modo automatico
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
 
 	if(GPIO_PIN==GPIO_PIN_0)
 	{
 		botonPersianas=true;
+	}
+	if(GPIO_PIN==GPIO_PIN_2)	//LUEGO CAMBIA EL PIN
+	{
+		botonAutomatico=true;
 	}
 }
 
@@ -105,6 +111,23 @@ bool antirrebotes(bool boton, GPIO_TypeDef* GPIO_PORT, uint16_t GPIO_NUMBER){
 			}
 		}
 	return false;
+}
+
+int luzEntrante(){
+
+	uint16_t luzADC;
+
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); //espera hasta que la conversion esté completa
+	luzADC=HAL_ADC_GetValue(&hadc1);
+
+	if(luzADC > 2000){   //mirar valores más óptimos
+		return 1;	// BAJARÉ PERSIANAS
+	}
+	if(luzADC < 50){
+		return 0;   //SUBIRÉ PERSIANAS
+	}
+
 }
 
 /* USER CODE END 0 */
@@ -142,6 +165,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 
+
   persianasArriba=false;
   persianasAbajo=true;
   /* USER CODE END 2 */
@@ -164,6 +188,17 @@ int main(void)
 			persianasArriba=true;
 			persianasAbajo=false;
 		}
+
+		//SI PULSAMOS EL MODO AUTOMATICO Y NO HAY LUZ, SUBIMOS PERSIANAS
+		if(antirrebotes(botonAutomatico, GPIOA, GPIO_PIN_2) && luzEntrante==1)  //Sino funciona sacar a otro bucle if distinto luzEntrante
+		{
+			subirPersianas(htim2);
+			HAL_Delay(3000);
+			pararPersianas(htim2);
+			persianasArriba=true;
+			persianasAbajo=false;
+
+		}
 	}
 	if (persianasArriba == true)
 	{
@@ -176,7 +211,18 @@ int main(void)
 			persianasArriba=false;
 			persianasAbajo=true;
 		}
+
+		//SI PULSAMOS EL MODO AUTOMATICO Y ENTRA MUCHA LUZ, BAJAMOS PERSIANAS
+		if(antirrebotes(botonAutomatico, GPIOA, GPIO_PIN_2) && luzEntrante==0)
+		{
+			bajarPersianas(htim2);
+			HAL_Delay(3000);
+			pararPersianas(htim2);
+			persianasArriba=false;
+			persianasAbajo=true;
+		}
 	}
+
   }
   /* USER CODE END 3 */
 }
