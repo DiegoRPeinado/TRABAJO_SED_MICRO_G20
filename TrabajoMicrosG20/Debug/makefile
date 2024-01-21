@@ -60,8 +60,8 @@ all: main-build
 main-build: TrabajoMicrosG20.elf secondary-outputs
 
 # Tool invocations
-TrabajoMicrosG20.elf TrabajoMicrosG20.map: $(OBJS) $(USER_OBJS) C:\Users\monic\Documents\GitHub\TRABAJO_SED_MICRO_G20\TrabajoMicrosG20\STM32F411VETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "TrabajoMicrosG20.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\monic\Documents\GitHub\TRABAJO_SED_MICRO_G20\TrabajoMicrosG20\STM32F411VETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="TrabajoMicrosG20.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+TrabajoMicrosG20.elf TrabajoMicrosG20.map: $(OBJS) $(USER_OBJS) C:\Users\diego\OneDrive\Documentos\TRABAJO_SED_MICRO_G20\TrabajoMicrosG20\STM32F411VETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "TrabajoMicrosG20.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\diego\OneDrive\Documentos\TRABAJO_SED_MICRO_G20\TrabajoMicrosG20\STM32F411VETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="TrabajoMicrosG20.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

@@ -41,6 +41,9 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
+TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 
@@ -63,10 +66,13 @@ TIM_HandleTypeDef htim2;
 bool persianasArriba;
 bool persianasAbajo;
 
-//bool modo;
+bool modoManual;
+bool modoAutomatico;
 
 bool botonPersianas; // En modo manual, permite controlar las persianas
-bool botonAutomatico; // Activa o desactiva el modo automatico
+bool botonModo; // Cambia el modo actual
+
+uint16_t test;
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
 
@@ -74,9 +80,22 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
 	{
 		botonPersianas=true;
 	}
-	if(GPIO_PIN==GPIO_PIN_2)	//LUEGO CAMBIA EL PIN
+	if(GPIO_PIN==GPIO_PIN_2)
 	{
-		botonAutomatico=true;
+		if (botonModo==true)
+		{
+			//ENTRAMOS EN MODO MANUAL
+			botonModo=false;
+			modoManual=true;
+			modoAutomatico=false;
+		}
+		else if (botonModo==false)
+		{
+			//ENTRAMOS EN MODO AUTOMATICO
+			botonModo=true;
+			modoManual=false;
+			modoAutomatico=true;
+		}
 	}
 }
 
@@ -121,12 +140,16 @@ int luzEntrante(){
 	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); //espera hasta que la conversion esté completa
 	luzADC=HAL_ADC_GetValue(&hadc1);
 
-	if(luzADC > 2000){   //mirar valores más óptimos
-		return 1;	// BAJARÉ PERSIANAS
+	if(luzADC > 150)
+	{
+		return 1;	//HAY MUCHA LUZ. BAJAR PERSIANAS
 	}
-	if(luzADC < 50){
-		return 0;   //SUBIRÉ PERSIANAS
+	if(luzADC < 30)
+	{
+		return 0;   //HAY POCA LUZ. SUBIR PERSIANAS
 	}
+	else return 2;  //NO HACER NADA -- PERSIANAS A LA MITAD?
+
 
 }
 
@@ -139,6 +162,11 @@ int luzEntrante(){
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+
+  persianasArriba=false;
+  persianasAbajo=true;
+  modoManual=false;
+  modoAutomatico=false;
 
   /* USER CODE END 1 */
 
@@ -164,10 +192,6 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-
-
-  persianasArriba=false;
-  persianasAbajo=true;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -177,49 +201,58 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	if (persianasAbajo == true)
+	test = luzEntrante();
+
+	if (modoManual)
 	{
-		//SI PULSAMOS BOTONPERSIANAS Y PASA EL DEBOUNCER, SUBIMOS PERSIANAS
-		if (antirrebotes(botonPersianas, GPIOA, GPIO_PIN_0))
+		if (persianasAbajo)
 		{
-			subirPersianas(htim2);
-			HAL_Delay(3000);
-			pararPersianas(htim2);
-			persianasArriba=true;
-			persianasAbajo=false;
+			//SI PULSAMOS BOTONPERSIANAS Y PASA EL DEBOUNCER, SUBIMOS PERSIANAS
+			if (antirrebotes(botonPersianas, GPIOA, GPIO_PIN_0))
+			{
+				subirPersianas(htim2);
+				HAL_Delay(3000);
+				pararPersianas(htim2);
+				persianasArriba=true;
+				persianasAbajo=false;
+			}
 		}
-
-		//SI PULSAMOS EL MODO AUTOMATICO Y NO HAY LUZ, SUBIMOS PERSIANAS
-		if(antirrebotes(botonAutomatico, GPIOA, GPIO_PIN_2) && luzEntrante()==1)  //Sino funciona sacar a otro bucle if distinto luzEntrante
+		if (persianasArriba)
 		{
-			subirPersianas(htim2);
-			HAL_Delay(3000);
-			pararPersianas(htim2);
-			persianasArriba=true;
-			persianasAbajo=false;
-
+			//SI PULSAMOS BOTONPERSIANA Y PASA EL DEBOUNCER, BAJAMOS PERSIANAS
+			if (antirrebotes(botonPersianas, GPIOA, GPIO_PIN_0))
+			{
+				bajarPersianas(htim2);
+				HAL_Delay(3000);
+				pararPersianas(htim2);
+				persianasArriba=false;
+				persianasAbajo=true;
+			}
 		}
 	}
-	if (persianasArriba == true)
+	if (modoAutomatico)
 	{
-		//SI PULSAMOS BOTONPERSIANA Y PASA EL DEBOUNCER, BAJAMOS PERSIANAS
-		if (antirrebotes(botonPersianas, GPIOA, GPIO_PIN_0))
+		if (persianasAbajo)
 		{
-			bajarPersianas(htim2);
-			HAL_Delay(3000);
-			pararPersianas(htim2);
-			persianasArriba=false;
-			persianasAbajo=true;
+			if(luzEntrante()==0)
+				{
+					subirPersianas(htim2);
+					HAL_Delay(3000);
+					pararPersianas(htim2);
+					persianasArriba=true;
+					persianasAbajo=false;
+				}
 		}
-
-		//SI PULSAMOS EL MODO AUTOMATICO Y ENTRA MUCHA LUZ, BAJAMOS PERSIANAS
-		if(antirrebotes(botonAutomatico, GPIOA, GPIO_PIN_2) && luzEntrante()==0)
+		if (persianasArriba)
 		{
-			bajarPersianas(htim2);
-			HAL_Delay(3000);
-			pararPersianas(htim2);
-			persianasArriba=false;
-			persianasAbajo=true;
+			if(luzEntrante()==1)
+				{
+					bajarPersianas(htim2);
+					HAL_Delay(3000);
+					pararPersianas(htim2);
+					persianasArriba=false;
+					persianasAbajo=true;
+				}
 		}
 	}
 
