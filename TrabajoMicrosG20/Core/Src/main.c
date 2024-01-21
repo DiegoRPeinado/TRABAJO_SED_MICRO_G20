@@ -190,7 +190,7 @@ int main(void)
 		}
 
 		//SI PULSAMOS EL MODO AUTOMATICO Y NO HAY LUZ, SUBIMOS PERSIANAS
-		if(antirrebotes(botonAutomatico, GPIOA, GPIO_PIN_2) && luzEntrante==1)  //Sino funciona sacar a otro bucle if distinto luzEntrante
+		if(antirrebotes(botonAutomatico, GPIOA, GPIO_PIN_2) && luzEntrante()==1)  //Sino funciona sacar a otro bucle if distinto luzEntrante
 		{
 			subirPersianas(htim2);
 			HAL_Delay(3000);
@@ -213,7 +213,7 @@ int main(void)
 		}
 
 		//SI PULSAMOS EL MODO AUTOMATICO Y ENTRA MUCHA LUZ, BAJAMOS PERSIANAS
-		if(antirrebotes(botonAutomatico, GPIOA, GPIO_PIN_2) && luzEntrante==0)
+		if(antirrebotes(botonAutomatico, GPIOA, GPIO_PIN_2) && luzEntrante()==0)
 		{
 			bajarPersianas(htim2);
 			HAL_Delay(3000);
