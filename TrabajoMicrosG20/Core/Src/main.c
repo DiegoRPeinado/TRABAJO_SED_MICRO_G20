@@ -60,11 +60,17 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+typedef enum {
+    REPOSO,
+    CONTROL_PERSIANAS,
+    CONTROL_PRESENCIA
+} Estado;
+
+Estado estadoActual;
 ADC_HandleTypeDef hadc1;
 TIM_HandleTypeDef htim2;
 
-bool persianasArriba;
-bool persianasAbajo;
+uint32_t tiempoInicial;
 
 bool modoManual;
 bool modoAutomatico;
@@ -73,6 +79,10 @@ bool botonPersianas; // En modo manual, permite controlar las persianas
 bool botonModo; // Cambia el modo actual
 
 uint16_t test;
+
+bool antirrebotes(bool *boton, GPIO_TypeDef* GPIO_PORT, uint16_t GPIO_NUMBER);
+bool modoNoche(uint32_t *tiempo);
+int luzEntrante();
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
 
@@ -99,60 +109,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
 	}
 }
 
-bool antirrebotes(bool boton, GPIO_TypeDef* GPIO_PORT, uint16_t GPIO_NUMBER){
-	static uint8_t button_count=0;
-	static int counter=0;
-
-		if (boton==true)
-		{
-			if (button_count==0)
-			{
-				counter=HAL_GetTick();
-				button_count++;
-			}
-			if (HAL_GetTick()-counter>=20)
-			{
-				counter=HAL_GetTick();
-				if (HAL_GPIO_ReadPin(GPIO_PORT, GPIO_NUMBER)!=1)
-				{
-					button_count=1;
-				}
-				else
-				{
-					button_count++;
-				}
-				if (button_count==4) //Periodo antirebotes
-				{
-					button_count=0;
-					boton=false; // PONEMOS EL BOTON A 0 UNA VEZ PASE EL DEBOUNCER
-					return true;
-				}
-			}
-		}
-	return false;
-}
-
-int luzEntrante(){
-
-	uint16_t luzADC;
-
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); //espera hasta que la conversion esté completa
-	luzADC=HAL_ADC_GetValue(&hadc1);
-
-	if(luzADC > 150)
-	{
-		return 1;	//HAY MUCHA LUZ. BAJAR PERSIANAS
-	}
-	if(luzADC < 30)
-	{
-		return 0;   //HAY POCA LUZ. SUBIR PERSIANAS
-	}
-	else return 2;  //NO HACER NADA -- PERSIANAS A LA MITAD?
-
-
-}
-
 /* USER CODE END 0 */
 
 /**
@@ -162,12 +118,10 @@ int luzEntrante(){
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
-  persianasArriba=false;
-  persianasAbajo=true;
+  tiempoInicial = HAL_GetTick();
+  estadoActual=REPOSO;
   modoManual=false;
   modoAutomatico=false;
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -201,59 +155,47 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	test = luzEntrante();
 
-	if (modoManual)
+	switch(estadoActual)
 	{
-		if (persianasAbajo)
+	case REPOSO:
+		estadoActual = CONTROL_PERSIANAS;
+		break;
+	case CONTROL_PERSIANAS:
+		if (modoNoche(&tiempoInicial)==1)
 		{
-			//SI PULSAMOS BOTONPERSIANAS Y PASA EL DEBOUNCER, SUBIMOS PERSIANAS
-			if (antirrebotes(botonPersianas, GPIOA, GPIO_PIN_0))
+			estadoActual = CONTROL_PRESENCIA;
+
+			if (persianasArriba)
 			{
-				subirPersianas(htim2);
-				HAL_Delay(3000);
-				pararPersianas(htim2);
-				persianasArriba=true;
-				persianasAbajo=false;
+				bajarPersianas();
 			}
 		}
-		if (persianasArriba)
+		if (modoManual)
 		{
-			//SI PULSAMOS BOTONPERSIANA Y PASA EL DEBOUNCER, BAJAMOS PERSIANAS
-			if (antirrebotes(botonPersianas, GPIOA, GPIO_PIN_0))
+			if (persianasAbajo && antirrebotes(&botonPersianas, GPIOA, GPIO_PIN_0))
 			{
-				bajarPersianas(htim2);
-				HAL_Delay(3000);
-				pararPersianas(htim2);
-				persianasArriba=false;
-				persianasAbajo=true;
+				subirPersianas();
+			}
+			else if (persianasArriba && antirrebotes(&botonPersianas, GPIOA, GPIO_PIN_0))
+			{
+				bajarPersianas();
 			}
 		}
-	}
-	if (modoAutomatico)
-	{
-		if (persianasAbajo)
+		if (modoAutomatico)
 		{
-			if(luzEntrante()==0)
-				{
-					subirPersianas(htim2);
-					HAL_Delay(3000);
-					pararPersianas(htim2);
-					persianasArriba=true;
-					persianasAbajo=false;
-				}
+			if (persianasAbajo && luzEntrante()==0)
+			{
+				subirPersianas();
+			}
+			else if (persianasArriba && luzEntrante()==1)
+			{
+				bajarPersianas();
+			}
 		}
-		if (persianasArriba)
-		{
-			if(luzEntrante()==1)
-				{
-					bajarPersianas(htim2);
-					HAL_Delay(3000);
-					pararPersianas(htim2);
-					persianasArriba=false;
-					persianasAbajo=true;
-				}
-		}
+			break;
+	case CONTROL_PRESENCIA:
+			break;
 	}
 
   }
@@ -458,7 +400,71 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+int luzEntrante(){
 
+	uint16_t luzADC;
+
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); //espera hasta que la conversion esté completa
+	luzADC=HAL_ADC_GetValue(&hadc1);
+
+	if(luzADC > 150)
+	{
+		return 1;	//HAY MUCHA LUZ. BAJAR PERSIANAS
+	}
+	if(luzADC < 30)
+	{
+		return 0;   //HAY POCA LUZ. SUBIR PERSIANAS
+	}
+	else return 2;  //NO HACER NADA -- PERSIANAS A LA MITAD?
+}
+
+bool antirrebotes(bool *boton, GPIO_TypeDef* GPIO_PORT, uint16_t GPIO_NUMBER){
+	static uint8_t button_count=0;
+	static int counter=0;
+
+		if (*boton==true)
+		{
+			if (button_count==0)
+			{
+				counter=HAL_GetTick();
+				button_count++;
+			}
+			if (HAL_GetTick()-counter>=20)
+			{
+				counter=HAL_GetTick();
+				if (HAL_GPIO_ReadPin(GPIO_PORT, GPIO_NUMBER)!=1)
+				{
+					button_count=1;
+				}
+				else
+				{
+					button_count++;
+				}
+				if (button_count==4) //Periodo antirebotes
+				{
+					button_count=0;
+					*boton=false; // PONEMOS EL BOTON A 0 UNA VEZ PASE EL DEBOUNCER
+					return true;
+				}
+			}
+		}
+	return false;
+}
+
+bool modoNoche(uint32_t *tiempo)
+{
+	if (luzEntrante()==0 && HAL_GetTick()-*tiempo>10000)
+	{
+		return true;
+	}
+	else if(luzEntrante()!=0)
+	{
+		*tiempo = HAL_GetTick();
+		return false;
+	}
+	return false;
+}
 /* USER CODE END 4 */
 
 /**

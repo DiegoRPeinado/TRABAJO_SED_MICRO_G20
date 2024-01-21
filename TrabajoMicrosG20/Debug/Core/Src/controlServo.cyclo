@@ -1,3 +1,3 @@
-../Core/Src/controlServo.c:3:6:subirPersianas	1
-../Core/Src/controlServo.c:9:6:pararPersianas	1
+../Core/Src/controlServo.c:6:6:subirPersianas	1
 ../Core/Src/controlServo.c:15:6:bajarPersianas	1
+../Core/Src/controlServo.c:24:6:pararPersianas	1
