@@ -485,19 +485,21 @@ int luzEntrante(){
 
 	uint16_t luzADC;
 
+	// Inicia la conversión ADC, espera a que finalice y luego asigna el valor obtenido a la variable luzADC
 	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); //espera hasta que la conversion esté completa
+	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
 	luzADC=HAL_ADC_GetValue(&hadc1);
 
+	//Control de persianas en funcion de la luz
 	if(luzADC > 150)
 	{
-		return 1;	//HAY MUCHA LUZ. SUBIR PERSIANAS
+		return 1;	//Mucha luz, subir persianas.
 	}
 	if(luzADC < 30)
 	{
-		return 0;   //HAY POCA LUZ. BAJAR PERSIANAS
+		return 0;   //No hay luz, bajar persianas.
 	}
-	else return 2;  //NO HACER NADA
+	else return 2;
 }
 
 bool antirrebotes(bool *boton, GPIO_TypeDef* GPIO_PORT, uint16_t GPIO_NUMBER){
@@ -511,7 +513,7 @@ bool antirrebotes(bool *boton, GPIO_TypeDef* GPIO_PORT, uint16_t GPIO_NUMBER){
 				counter=HAL_GetTick();
 				button_count++;
 			}
-			if (HAL_GetTick()-counter>=20)
+			if (HAL_GetTick()-counter>=20)	//Periodo de comprobación de 20 ms
 			{
 				counter=HAL_GetTick();
 				if (HAL_GPIO_ReadPin(GPIO_PORT, GPIO_NUMBER)!=1)
@@ -525,7 +527,7 @@ bool antirrebotes(bool *boton, GPIO_TypeDef* GPIO_PORT, uint16_t GPIO_NUMBER){
 				if (button_count==4) //Periodo antirebotes
 				{
 					button_count=0;
-					*boton=false; // PONEMOS EL BOTON A 0 UNA VEZ PASE EL DEBOUNCER
+					*boton=false; // Ponemos el botón a 0 una vez pase el Debouncer
 					return true;
 				}
 			}
@@ -535,13 +537,15 @@ bool antirrebotes(bool *boton, GPIO_TypeDef* GPIO_PORT, uint16_t GPIO_NUMBER){
 
 bool modoNoche(uint32_t *tiempo)
 {
+	//Activación del modo nocturno en caso de no detectar luz en un periodo
+	//superior a 10 segundos
 	if (luzEntrante()==0 && HAL_GetTick()-*tiempo>10000)
 	{
 		return true;
 	}
 	else if(luzEntrante()!=0)
 	{
-		*tiempo = HAL_GetTick();
+		*tiempo = HAL_GetTick();	//Reinicio la cuenta del tiempo
 		return false;
 	}
 	return false;
@@ -549,13 +553,15 @@ bool modoNoche(uint32_t *tiempo)
 
 bool modoDia(uint32_t *tiempo)
 {
+	//Activación del modo día en caso de detectar luz durante un periodo
+	//superior a 10 segundos.
 	if (luzEntrante()==1 && HAL_GetTick()-*tiempo>10000)
 	{
 		return true;
 	}
 	else if(luzEntrante()!=1)
 	{
-		*tiempo = HAL_GetTick();
+		*tiempo = HAL_GetTick();	//Reinicio la cuenta
 		return false;
 	}
 	return false;
