@@ -28,7 +28,7 @@ void controlPresencia(TIM_HandleTypeDef *htim)
 				//En caso de pasarse del period del TIM, valor 1 será mayor que valor 2, por lo que habrá que restarle el valor1 al periodo.
 				else if (valor1 > valor2)
 				{
-					diferencia = (0xffff - valor1) + valor2;
+					diferencia = (2000 - valor1) + valor2;
 				}
 
 				distancia = diferencia * .034/2; // Distancia en centrimetros

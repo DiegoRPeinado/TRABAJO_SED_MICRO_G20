@@ -1,3 +1,0 @@
-../Core/Src/controlServo.c:6:6:subirPersianas	8	static
-../Core/Src/controlServo.c:15:6:bajarPersianas	8	static
-../Core/Src/controlServo.c:24:6:pararPersianas	8	static
