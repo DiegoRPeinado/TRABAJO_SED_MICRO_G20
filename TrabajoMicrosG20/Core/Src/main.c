@@ -43,7 +43,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
-
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
@@ -65,18 +64,16 @@ static void MX_TIM1_Init(void);
 /* USER CODE BEGIN 0 */
 typedef enum {
     REPOSO,
-    CONTROL_PERSIANAS,
-    CONTROL_PRESENCIA
+    CONTROL_PERSIANAS, //Estado en el que unicamente se controlan las persianas. Equivaldría a un control domótico durante el día
+    CONTROL_PRESENCIA //Se controlará el ultrasonidos para detectar presencia. Equivaldría a un control domótico durante la noche
 } Estado;
 
 Estado estadoActual;
-ADC_HandleTypeDef hadc1;
-TIM_HandleTypeDef htim2;
 
-uint32_t tiempoInicial;
+uint32_t tiempoInicial; //Variable que controla el tiempo de deteccion de la condición lumínica.
 
-bool modoManual;
-bool modoAutomatico;
+bool modoManual; //Si es TRUE se ejecuta el modo manual del control de persianas
+bool modoAutomatico; //Si es TRUE se ejecuta el modo automatica del control de persianas
 
 bool botonPersianas; // En modo manual, permite controlar las persianas
 bool botonModo; // Cambia el modo actual
@@ -84,9 +81,9 @@ bool botonModo; // Cambia el modo actual
 uint16_t test;
 
 bool antirrebotes(bool *boton, GPIO_TypeDef* GPIO_PORT, uint16_t GPIO_NUMBER);
-bool modoNoche(uint32_t *tiempo);
-bool modoDia(uint32_t *tiempo);
-int luzEntrante();
+bool modoNoche(uint32_t *tiempo); //Devuelve 1 si ha pasado el suficiente tiempo bajo poca luz.
+bool modoDia(uint32_t *tiempo); //Devuelve 1 si ha pasado el suficiente tiempo bajo mucha luz.
+int luzEntrante(); // Devuelve un valor dependiendo del nivel lumínico en ese instante.
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
 
@@ -115,14 +112,14 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_PIN){
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
-	if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)  // if the interrupt source is channel1
+	if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)  // Rutina de interrupciones del TIM1, que maneja el ECHO del ultrasonidos
 	{
+		//Función que mide la distancia detectada por el ultrasonidos
 		controlPresencia(htim);
 	}
 }
 
 /* USER CODE END 0 */
-
 /**
   * @brief  The application entry point.
   * @retval int
@@ -130,6 +127,8 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+
+  //Configuracion inicial
   tiempoInicial = HAL_GetTick();
   estadoActual=REPOSO;
   modoManual=false;
@@ -160,6 +159,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+
+  //Configuramos el temporizador PWM para la señal de trigger del ultrasonidos
   __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4,1);
 
   /* USER CODE END 2 */
@@ -178,17 +179,20 @@ int main(void)
 		estadoActual = CONTROL_PERSIANAS;
 		break;
 	case CONTROL_PERSIANAS:
+		//Comprobamos si ya es de noche, lo que activaría el control de presencia (Modo Noche)
 		if (modoNoche(&tiempoInicial)==1)
 		{
 			estadoActual = CONTROL_PRESENCIA;
 
 			if (persianasArriba)
 			{
+				//En caso de que las persianas estuviesen arriba, las bajamos para el modo noche
 				bajarPersianas();
 			}
 		}
 		else if (modoManual)
 		{
+			// Dependiendo de la posición de las persianas y de si pasamos el antirrebotes, subirá o bajará las persianas
 			if (persianasAbajo && antirrebotes(&botonPersianas, GPIOA, GPIO_PIN_0))
 			{
 				subirPersianas();
@@ -200,6 +204,7 @@ int main(void)
 		}
 		else if (modoAutomatico)
 		{
+			//Control del modo automatico dependiendo de la luz y de la posición de las persianas
 			if (persianasAbajo && luzEntrante()==1)
 			{
 				subirPersianas();
@@ -211,11 +216,14 @@ int main(void)
 		}
 			break;
 	case CONTROL_PRESENCIA:
+		// Comprobamos si ya es de día, lo que activaría el control de persianas (Modo Día)
 		if (modoDia(&tiempoInicial)==1)
 		{
+			//Pasamos a control de persianas y apagamos el led de alarma
 			estadoActual = CONTROL_PERSIANAS;
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_RESET);
 		}
+		//Si detectamos a una determinada distancia, se enciande un led de alarma
 		else if(distancia < 10)
 		{
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, GPIO_PIN_SET);
@@ -441,8 +449,8 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, Motor_IN_2_Pin|Motor_IN_1_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : PA0 PA1 PA2 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2;
+  /*Configure GPIO pins : PA0 PA2 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_2;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -464,9 +472,6 @@ static void MX_GPIO_Init(void)
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI0_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
   HAL_NVIC_SetPriority(EXTI2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI2_IRQn);
